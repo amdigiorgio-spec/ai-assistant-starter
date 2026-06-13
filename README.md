@@ -4,7 +4,7 @@ This is a beginner-friendly starter for a private, human-approved AI assistant.
 
 The planned product is single-user first: one private assistant, protected before deployment, with Supabase as the source of truth and Notion as a human-facing dashboard.
 
-The Phase 1 version currently does this:
+The Phase 2 version currently does this:
 
 ```text
 Sign in as the single owner
@@ -13,6 +13,7 @@ Sign in as the single owner
   -> OpenAI extracts proposed actions
   -> Supabase stores source + proposals
   -> Review queue lets you edit, approve, reject, or request clarification
+  -> Approved manual proposals can become tasks, goals, reminders, project updates, or pending memories
   -> Nothing external is executed automatically
 ```
 
@@ -26,8 +27,10 @@ For the full phase-by-phase plan, see `docs/architecture-plan.md`.
 - Single-user Supabase Auth session boundary
 - OpenAI Structured Outputs extraction
 - Supabase Phase 1 schema for source items, proposed actions, approvals, tasks, projects, goals, calendars, email, Slack, reviews, memory, jobs, audit, and errors
+- Idempotent approved-action processor for manual task, goal, reminder, project update, and memory proposals
+- Review queue filters and richer proposal editing
 - Notion Proposed Actions review queue integration
-- Conservative approval processor stub
+- Conservative approval processor
 - Codex prompt sequence for building the next slices
 
 ## Prerequisites
@@ -90,6 +93,9 @@ Notion variables are optional in Phase 1 unless you want proposed actions mirror
 3. Run `supabase/schema.sql`.
 4. Create one Supabase Auth user for yourself.
 5. Copy your project URL, anon key, and service role key into `.env.local`.
+
+If you ran an older or partial version of the schema while setting up locally, run
+`supabase/phase2-repair.sql` once in the Supabase SQL Editor. It is safe to rerun.
 
 Important: the service role key must only be used server-side. Do not expose it in browser code.
 
@@ -157,10 +163,9 @@ That is intentional. This starter proves the core workflow first.
 
 ## Recommended next build slices
 
-1. Process approved actions into tasks, project updates, reminders, goals, and pending memories.
-2. Add expanded Notion sync for review items, tasks, projects, goals, and reviews.
-3. Add Slack DM quick capture.
-4. Add Gmail intake while preserving unread state.
-5. Add Google Calendar and Outlook Calendar read-only availability.
-6. Add morning/evening summaries and weekly/monthly reviews.
-7. Add approved-memory context and later vector retrieval.
+1. Add expanded Notion sync for review items, tasks, projects, goals, and reviews.
+2. Add Slack DM quick capture.
+3. Add Gmail intake while preserving unread state.
+4. Add Google Calendar and Outlook Calendar read-only availability.
+5. Add morning/evening summaries and weekly/monthly reviews.
+6. Add approved-memory context and later vector retrieval.

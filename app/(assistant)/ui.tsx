@@ -70,10 +70,15 @@ export function ProposedActionCard({ action }: { action: ProposedActionSummary }
       </details>
       <EditProposalForm
         actionId={action.id}
+        initialActionType={action.action_type}
         initialTitle={action.title}
         initialDescription={action.description}
+        initialPriority={action.priority}
+        initialDueAt={action.due_at}
+        initialStartAt={action.start_at}
+        initialEndAt={action.end_at}
       />
-      <ReviewButtons actionId={action.id} />
+      <ReviewButtons actionId={action.id} status={action.status} />
     </article>
   );
 }

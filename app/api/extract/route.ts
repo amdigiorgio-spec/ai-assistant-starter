@@ -6,6 +6,7 @@ import { toProposedActionRows } from "@/lib/normalize";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { createProposedActionPage } from "@/lib/notion";
 import { makeIdempotencyKey, sourceExcerpt } from "@/lib/idempotency";
+import { errorMessage } from "@/lib/errors";
 
 export async function POST(request: Request) {
   try {
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
         .select("id")
         .single();
 
-      if (error) throw new Error(`Supabase source_items upsert failed: ${error.message}`);
+      if (error) throw new Error(`Supabase source_items upsert failed: ${errorMessage(error)}`);
       sourceItemId = data.id;
     }
 
@@ -80,7 +81,7 @@ export async function POST(request: Request) {
           .select("id")
           .single();
 
-        if (error) throw new Error(`Supabase proposed_actions upsert failed: ${error.message}`);
+        if (error) throw new Error(`Supabase proposed_actions upsert failed: ${errorMessage(error)}`);
         actionId = data.id;
       }
 
@@ -91,7 +92,7 @@ export async function POST(request: Request) {
           .from("proposed_actions")
           .update({ notion_page_id: notionPageId })
           .eq("id", actionId);
-        if (error) throw new Error(`Supabase notion_page_id update failed: ${error.message}`);
+        if (error) throw new Error(`Supabase notion_page_id update failed: ${errorMessage(error)}`);
       }
 
       created.push({ actionId, notionPageId, actionType: row.action_type, title: row.title, status: row.status });
@@ -111,7 +112,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error(error);
     return NextResponse.json(
-      { ok: false, error: error instanceof Error ? error.message : "Unknown error" },
+      { ok: false, error: errorMessage(error) },
       { status: 500 }
     );
   }

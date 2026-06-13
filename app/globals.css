@@ -308,6 +308,45 @@ summary {
   gap: 14px;
 }
 
+.filter-bar {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 12px;
+}
+
+.filter-bar div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.filter-bar span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  min-width: 56px;
+}
+
+.filter-bar a {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 10px;
+}
+
+.filter-bar a.active-filter,
+.filter-bar a:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 .compact-list .item-card {
   box-shadow: none;
 }
@@ -376,6 +415,27 @@ summary {
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+
+.process-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 12px;
+}
+
+.process-panel button {
+  min-width: 180px;
+}
+
+.review-complete {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 700;
 }
 
 .edit-panel form {

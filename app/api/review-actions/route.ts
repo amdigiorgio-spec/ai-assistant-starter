@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { makeIdempotencyKey } from "@/lib/idempotency";
+import { errorMessage } from "@/lib/errors";
 
 type DecisionPayload = {
   proposed_action_id?: string;
@@ -11,9 +12,38 @@ type DecisionPayload = {
 
 type EditPayload = {
   proposed_action_id?: string;
+  action_type?: string;
   title?: string;
   description?: string | null;
+  priority?: string | null;
+  due_at?: string | null;
+  start_at?: string | null;
+  end_at?: string | null;
 };
+
+const actionTypes = new Set([
+  "task",
+  "project_update",
+  "calendar_event",
+  "meeting_options",
+  "reminder",
+  "goal",
+  "memory",
+  "journal_entry",
+  "spam_candidate",
+  "email_style_example"
+]);
+
+const priorities = new Set(["low", "medium", "high", "none"]);
+
+function cleanDate(value: string | null | undefined) {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = Date.parse(trimmed);
+  if (Number.isNaN(parsed)) throw new Error(`Invalid date: ${value}`);
+  return new Date(parsed).toISOString();
+}
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -36,14 +66,14 @@ export async function POST(request: Request) {
     decision_note: payload.decision_note ?? null
   });
 
-  if (decisionError) return NextResponse.json({ ok: false, error: decisionError.message }, { status: 500 });
+  if (decisionError) return NextResponse.json({ ok: false, error: errorMessage(decisionError) }, { status: 500 });
 
   const { error: updateError } = await supabase
     .from("proposed_actions")
     .update({ status: decision, updated_at: new Date().toISOString() })
     .eq("id", actionId);
 
-  if (updateError) return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 });
+  if (updateError) return NextResponse.json({ ok: false, error: errorMessage(updateError) }, { status: 500 });
 
   await supabase.from("audit_log").insert({
     entity_type: "proposed_action",
@@ -70,21 +100,48 @@ export async function PATCH(request: Request) {
   const payload = (await request.json()) as EditPayload;
   const actionId = payload.proposed_action_id;
   const title = payload.title?.trim();
+  const actionType = payload.action_type?.trim();
+  const priority = payload.priority?.trim() || null;
 
   if (!actionId || !title) {
     return NextResponse.json({ ok: false, error: "Missing proposed action or title" }, { status: 400 });
   }
 
+  if (actionType && !actionTypes.has(actionType)) {
+    return NextResponse.json({ ok: false, error: "Invalid action type" }, { status: 400 });
+  }
+
+  if (priority && !priorities.has(priority)) {
+    return NextResponse.json({ ok: false, error: "Invalid priority" }, { status: 400 });
+  }
+
+  let dueAt: string | null;
+  let startAt: string | null;
+  let endAt: string | null;
+
+  try {
+    dueAt = cleanDate(payload.due_at);
+    startAt = cleanDate(payload.start_at);
+    endAt = cleanDate(payload.end_at);
+  } catch (error) {
+    return NextResponse.json({ ok: false, error: errorMessage(error) }, { status: 400 });
+  }
+
   const { error } = await supabase
     .from("proposed_actions")
     .update({
+      action_type: actionType,
       title,
       description: payload.description ?? null,
+      priority,
+      due_at: dueAt,
+      start_at: startAt,
+      end_at: endAt,
       updated_at: new Date().toISOString()
     })
     .eq("id", actionId);
 
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ ok: false, error: errorMessage(error) }, { status: 500 });
 
   await supabase.from("audit_log").insert({
     entity_type: "proposed_action",
@@ -94,8 +151,13 @@ export async function PATCH(request: Request) {
     details: {
       auth_user_id: user.authUserId,
       email: user.email,
+      action_type: actionType,
       title,
-      description: payload.description ?? null
+      description: payload.description ?? null,
+      priority,
+      due_at: dueAt,
+      start_at: startAt,
+      end_at: endAt
     }
   });
 

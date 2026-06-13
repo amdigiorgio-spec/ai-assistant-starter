@@ -3,10 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export function ReviewButtons({ actionId }: { actionId: string }) {
+export function ReviewButtons({ actionId, status }: { actionId: string; status: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  if (status === "Completed" || status === "Rejected" || status === "Error") {
+    return <p className="review-complete">No review actions available for {status.toLowerCase()} items.</p>;
+  }
 
   async function decide(decision: "Approved" | "Rejected" | "Needs Clarification") {
     setLoading(decision);
@@ -48,4 +52,3 @@ export function ReviewButtons({ actionId }: { actionId: string }) {
     </div>
   );
 }
-

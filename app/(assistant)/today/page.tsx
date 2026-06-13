@@ -5,6 +5,7 @@ import { QuickAddForm } from "../quick-add-form";
 export default async function TodayPage() {
   const data = await getDashboardData();
   const topTasks = data.tasks.slice(0, 5);
+  const reminders = data.reminders.slice(0, 5);
 
   return (
     <div className="page-stack">
@@ -53,7 +54,23 @@ export default async function TodayPage() {
           )}
         </div>
       </section>
+
+      <section className="section-band">
+        <h3>Reminders</h3>
+        {reminders.length === 0 ? (
+          <EmptyState title="No reminders yet" body="Approved reminder proposals will appear here after processing." />
+        ) : (
+          <div className="list-panel">
+            {reminders.map((reminder) => (
+              <div className="list-row" key={reminder.id}>
+                <strong>{reminder.title}</strong>
+                <span>{reminder.status}</span>
+                <span>{reminder.remind_at ? new Date(reminder.remind_at).toLocaleString() : "No time"}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
-

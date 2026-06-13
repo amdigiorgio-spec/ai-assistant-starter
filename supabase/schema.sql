@@ -157,7 +157,9 @@ create table if not exists project_updates (
   update_text text not null,
   status text not null default 'noted',
   notion_page_id text,
-  created_at timestamptz not null default now()
+  idempotency_key text,
+  created_at timestamptz not null default now(),
+  unique (idempotency_key)
 );
 
 create table if not exists goals (
@@ -169,8 +171,10 @@ create table if not exists goals (
   time_horizon text check (time_horizon in ('day', 'week', 'month', 'quarter', 'year', 'unknown')),
   next_action text,
   notion_page_id text,
+  idempotency_key text,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  unique (idempotency_key)
 );
 
 create table if not exists tasks (
@@ -201,8 +205,10 @@ create table if not exists reminders (
   description text,
   remind_at timestamptz,
   status text not null default 'pending' check (status in ('pending', 'sent', 'done', 'cancelled')),
+  idempotency_key text,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  unique (idempotency_key)
 );
 
 create table if not exists calendar_sources (
@@ -418,8 +424,10 @@ create table if not exists memory_facts (
   expires_at timestamptz,
   reason_to_remember text,
   notion_page_id text,
+  idempotency_key text,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  unique (idempotency_key)
 );
 
 create table if not exists memory_embeddings (

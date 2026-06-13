@@ -3,6 +3,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { markNotionPageCompleted, markNotionPageError } from "@/lib/notion";
 import { makeIdempotencyKey } from "@/lib/idempotency";
+import { ApprovedAction, buildApprovedActionWrite } from "@/lib/approved-actions";
+import { errorMessage } from "@/lib/errors";
 
 // This is a deliberately conservative processor.
 // It only processes rows that are already marked Approved in Supabase.
@@ -31,43 +33,18 @@ export async function POST() {
 
   for (const action of actions ?? []) {
     try {
-      if (action.action_type === "task") {
-        const { error: insertError } = await supabase.from("tasks").insert({
-          proposed_action_id: action.id,
-          source_item_id: action.source_item_id,
-          title: action.title,
-          description: action.description,
-          status: action.due_at ? "today" : "backlog",
-          priority: action.priority,
-          due_at: action.due_at
-        });
-        if (insertError) throw insertError;
-      } else if (action.action_type === "memory") {
-        const payload = action.raw_json ?? {};
-        const { error: insertError } = await supabase.from("memory_facts").insert({
-          proposed_action_id: action.id,
-          source_item_id: action.source_item_id,
-          text: payload.memory_text ?? action.title,
-          category: payload.category ?? "other",
-          sensitivity: payload.sensitivity ?? "normal",
-          reason_to_remember: payload.reason_to_remember ?? action.description,
-          status: "Active",
-          confidence: action.confidence,
-          approved_at: new Date().toISOString(),
-          expires_at: payload.expires_at ?? action.due_at
-        });
-        if (insertError) throw insertError;
-      } else {
-        // Calendar, reminders, journal, and goals are intentionally left as TODO for the next slice.
-        throw new Error(`Processor for action_type=${action.action_type} is not implemented yet.`);
-      }
+      const write = buildApprovedActionWrite(action as ApprovedAction);
+      const { error: writeError } = await supabase
+        .from(write.table)
+        .upsert(write.row, { onConflict: write.onConflict });
+      if (writeError) throw new Error(errorMessage(writeError));
 
       const now = new Date().toISOString();
       const { error: updateError } = await supabase
         .from("proposed_actions")
         .update({ status: "Completed", processed_at: now })
         .eq("id", action.id);
-      if (updateError) throw updateError;
+      if (updateError) throw new Error(errorMessage(updateError));
 
       await supabase.from("audit_log").insert({
         entity_type: "proposed_action",
@@ -84,7 +61,7 @@ export async function POST() {
       if (action.notion_page_id) await markNotionPageCompleted(action.notion_page_id);
       results.push({ id: action.id, status: "Completed" });
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = errorMessage(err);
       await supabase.from("proposed_actions").update({ status: "Needs Clarification", error: message }).eq("id", action.id);
       if (action.notion_page_id) await markNotionPageError(action.notion_page_id, message);
       results.push({ id: action.id, status: "Error", error: message });

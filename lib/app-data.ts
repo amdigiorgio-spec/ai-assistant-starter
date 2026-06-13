@@ -31,6 +31,13 @@ export type TaskSummary = {
   due_at: string | null;
 };
 
+export type ReminderSummary = {
+  id: string;
+  title: string;
+  status: string;
+  remind_at: string | null;
+};
+
 export type ProjectSummary = {
   id: string;
   name: string;
@@ -67,6 +74,7 @@ export type DashboardData = {
   configured: boolean;
   pendingActions: ProposedActionSummary[];
   tasks: TaskSummary[];
+  reminders: ReminderSummary[];
   projects: ProjectSummary[];
   goals: GoalSummary[];
   memories: MemorySummary[];
@@ -79,10 +87,16 @@ export type DashboardData = {
   };
 };
 
+export type DashboardFilters = {
+  status?: string;
+  actionType?: string;
+};
+
 const emptyData: DashboardData = {
   configured: false,
   pendingActions: [],
   tasks: [],
+  reminders: [],
   projects: [],
   goals: [],
   memories: [],
@@ -99,18 +113,44 @@ function asArray<T>(value: T[] | null): T[] {
   return Array.isArray(value) ? value : [];
 }
 
-export async function getDashboardData(): Promise<DashboardData> {
+const validStatuses = new Set(["Pending", "Approved", "Rejected", "Needs Clarification", "Completed", "Error"]);
+const validActionTypes = new Set([
+  "task",
+  "project_update",
+  "calendar_event",
+  "meeting_options",
+  "reminder",
+  "goal",
+  "memory",
+  "journal_entry",
+  "spam_candidate",
+  "email_style_example"
+]);
+
+export async function getDashboardData(filters: DashboardFilters = {}): Promise<DashboardData> {
   const supabase = getSupabaseAdmin();
   if (!supabase) return emptyData;
 
-  const [actions, tasks, projects, goals, memories, integrations] = await Promise.all([
-    supabase
-      .from("proposed_actions")
-      .select("id, action_type, title, description, status, priority, due_at, start_at, end_at, confidence, reason_summary, raw_json, created_at, source_items(source_type, source_title, source_excerpt)")
-      .in("status", ["Pending", "Needs Clarification"])
-      .order("created_at", { ascending: false })
-      .limit(50),
+  let actionsQuery = supabase
+    .from("proposed_actions")
+    .select("id, action_type, title, description, status, priority, due_at, start_at, end_at, confidence, reason_summary, raw_json, created_at, source_items(source_type, source_title, source_excerpt)")
+    .order("created_at", { ascending: false })
+    .limit(75);
+
+  if (filters.status && filters.status !== "all" && validStatuses.has(filters.status)) {
+    actionsQuery = actionsQuery.eq("status", filters.status);
+  } else if (!filters.status) {
+    actionsQuery = actionsQuery.in("status", ["Pending", "Needs Clarification"]);
+  }
+
+  if (filters.actionType && filters.actionType !== "all" && validActionTypes.has(filters.actionType)) {
+    actionsQuery = actionsQuery.eq("action_type", filters.actionType);
+  }
+
+  const [actions, tasks, reminders, projects, goals, memories, integrations] = await Promise.all([
+    actionsQuery,
     supabase.from("tasks").select("id, title, status, priority, due_at").neq("status", "done").order("due_at", { ascending: true, nullsFirst: false }).limit(50),
+    supabase.from("reminders").select("id, title, status, remind_at").neq("status", "done").order("remind_at", { ascending: true, nullsFirst: false }).limit(25),
     supabase.from("projects").select("id, name, status, next_action, updated_at").order("updated_at", { ascending: false }).limit(50),
     supabase.from("goals").select("id, title, status, time_horizon").order("updated_at", { ascending: false }).limit(25),
     supabase.from("memory_facts").select("id, text, category, status, sensitivity, confidence").order("updated_at", { ascending: false }).limit(50),
@@ -128,6 +168,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     configured: true,
     pendingActions,
     tasks: taskRows,
+    reminders: asArray(reminders.data as ReminderSummary[] | null),
     projects: projectRows,
     goals: asArray(goals.data as GoalSummary[] | null),
     memories: memoryRows,
@@ -140,4 +181,3 @@ export async function getDashboardData(): Promise<DashboardData> {
     }
   };
 }
-
